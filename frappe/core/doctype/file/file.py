@@ -72,7 +72,7 @@ class File(Document):
 		return not self.content
 
 	def before_insert(self):
-		frappe.local.rollback_observers.append(self)
+		
 		self.set_folder_name()
 		if self.file_name:
 			self.file_name = re.sub(r"/", "", self.file_name)
@@ -87,6 +87,7 @@ class File(Document):
 
 		if self.content:
 			self.save_file(content=self.content, decode=self.decode)
+			frappe.local.rollback_observers.append(self)
 
 	def get_name_based_on_parent_folder(self):
 		if self.folder:
@@ -369,8 +370,17 @@ class File(Document):
 			self.delete_file_data_content(only_thumbnail=True)
 
 	def on_rollback(self):
-		self.flags.on_rollback = True
-		self.on_trash()
+		
+		if self.flags.original_content:
+			file_path = self.get_full_path()
+			with open(file_path, "wb+") as f:
+				f.write(self.flags.original_content)
+
+		# following condition is only executed when an insert has been rolledback
+		else:
+			if not self.exists_on_disk():
+				self.flags.on_rollback = True
+				self.on_trash()
 
 	def unzip(self):
 		"""Unzip current file and replace it by its children"""
