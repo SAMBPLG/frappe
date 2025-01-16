@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 
 import datetime
+import time
 
 from six import iteritems, string_types
 
@@ -861,6 +862,18 @@ class BaseDocument(object):
 
 				else:
 					self_value = self.get_value(key)
+
+				## Fix time vs timedelta on field Time validate_update_after_submit
+				if df.fieldtype == 'Time' and type(self_value) is datetime.timedelta :
+					def timedelta_to_time(td):
+						# Ensure the timedelta is within a day
+						total_seconds = td.total_seconds() % (24 * 3600)
+						hours = int(total_seconds // 3600)
+						minutes = int((total_seconds % 3600) // 60)
+						seconds = int(total_seconds % 60)
+						microseconds = td.microseconds
+						return datetime.time(hour=hours, minute=minutes, second=seconds, microsecond=microseconds)
+					self_value = timedelta_to_time(self_value)
 
 				if self_value != db_value:
 					frappe.throw(
